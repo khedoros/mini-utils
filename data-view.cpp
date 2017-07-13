@@ -72,7 +72,7 @@ void decode_img(vector<uint8_t>& orig, vector<uint8_t>& deco, int mode) {
         cout<<" (using original data)"<<endl;
         deco = orig;
     }
-    if(mode == 1 || mode == 2) {
+    if(mode == 2 || mode == 3) { //Solar Winds RLE encoding
         int diff;
         int decoded_size;
         if(mode == 1) {
@@ -87,20 +87,47 @@ void decode_img(vector<uint8_t>& orig, vector<uint8_t>& deco, int mode) {
         deco.resize(decoded_size);
         int dec_index = 0;
         for(int i=0;i<orig.size();i++) {
-            if(orig[i]==0xff) {
-                //if(orig[i+1] == 0xfa) diff--;
-                memset(&deco[dec_index], orig[i+2], orig[i+1]+diff);
-                dec_index += orig[i+1]+diff;
-                if(orig[i+1] == 0) {
-                    cout<<"Actually saw length of 0..."<<endl;
+            if(orig[i]==0xff) { // repeat entry
+                if(dec_index + orig[i+1]+diff + 1< deco.size()) { //enough space left in vector
+                    memset(&deco[dec_index], orig[i+2], orig[i+1]+diff);
+                    dec_index += orig[i+1]+diff;
+                }
+                else { //not enough space left in vector
+                    memset(&deco[dec_index], orig[i+2], deco.size() - dec_index - 1);
+                    dec_index = deco.size() - 1;
                 }
                 i+=2;
             }
-            else {
+            else { //run byte
                 deco[dec_index] = orig[i];
                 dec_index++;
             }
         }
+    }
+    if(mode == 1) { // Keen 1-3 RLE encoding
+        int decoded_size = orig[0] + orig[1] * 256 + orig[2] * (256*256) + orig[3] * (256 * 256 * 256);
+        deco.resize(decoded_size);
+        int dec_index = 0;
+        for(int i=4; dec_index < decoded_size && i < orig.size(); i++) {
+            int control = orig[i];
+            if(control & 0x80 > 0) { //run record
+                int length = (control & 0x7f) + 1;
+                for(int j=0; j < length; j++) {
+                    deco[dec_index + j] = orig[i + j + 1];
+                }
+                dec_index += length;
+                i += length - 1; //it'll be incremented by the loop, anyhow
+            }
+            else { //repeat record
+                int length = (control & 0x7f) + 3;
+                memset(&deco[dec_index], orig[i+1], length);
+                dec_index += length;
+                i++; //skip the second byte
+            }
+        }
+    }
+    if(mode == 4) { // Keen 1-3 LZW encoding
+
     }
 }
 
@@ -134,7 +161,7 @@ int main(int argc, char *argv[]) {
     pal_size = pal_file.tellg();
     pal_file.seekg(0);
 
-    if(pal_size % 768 != 0 || img_size < 100) {
+    if(pal_size % 3 != 0 || img_size < 100) {
         cerr<<"The filesizes aren't what I'm expecting."<<endl;
         cerr<<"Palsize: "<<pal_size<<"\tImg Size: "<<img_size<<endl;
         return 1;
@@ -142,7 +169,7 @@ int main(int argc, char *argv[]) {
 
     assert(sizeof(color) == 3);
     vector<color> pal(256);
-    pal_file.read(reinterpret_cast<char *>(&pal[0]), 768);
+    pal_file.read(reinterpret_cast<char *>(&pal[0]), pal_size);
     pal_file.close();
 
     SDL_Palette *spal = SDL_AllocPalette(256);
@@ -152,10 +179,11 @@ int main(int argc, char *argv[]) {
     }
 
     for(int i=0;i<256;i++) {
-        cout<<"Index: "<<i<<"\t"<<int(pal[i].r)<<"\t"<<int(pal[i].g)<<"\t"<<int(pal[i].b)<<endl;
-        spal->colors[i].r = pal[i].r;
-        spal->colors[i].g = pal[i].g;
-        spal->colors[i].b = pal[i].b;
+        int index = i % (pal_size / 3);
+        cout<<"Index: "<<i<<"\t"<<int(pal[index].r)<<"\t"<<int(pal[index].g)<<"\t"<<int(pal[index].b)<<endl;
+        spal->colors[i].r = pal[index].r;
+        spal->colors[i].g = pal[index].g;
+        spal->colors[i].b = pal[index].b;
         spal->colors[i].a = 255;
     }
 
@@ -235,7 +263,7 @@ int main(int argc, char *argv[]) {
                             }
                             break;
                         case SDL_SCANCODE_F:
-                            decode_mode = (decode_mode + 1) % 3;
+                            decode_mode = (decode_mode + 1) % 4;
                             decode_img(img, decoded_img, decode_mode);
                             changed = true;
                             break;
