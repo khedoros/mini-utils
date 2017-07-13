@@ -5,6 +5,8 @@
 #include<vector>
 #include<cstdint>
 #include<array>
+#include<string>
+#include<stdexcept>
 
 using namespace std;
 
@@ -76,6 +78,7 @@ public:
 
     void set_ptr(unsigned int ptr) {
         disp_ptr = ptr & 0xffff;
+        //cout<<"ptr set to "<<disp_ptr<<endl;
     }
 
     void set_pal(unsigned int index, unsigned int palnum) {
@@ -118,6 +121,7 @@ public:
         if(bytes.size() > 0x10000) return;
         for(int i=0;i<bytes.size();i++) {
             bitplanes[(disp_ptr+i) % 0x10000][write_plane] = bytes[i];
+            //cout<<"Write "<<hex<<int(bytes[i])<<" to "<<disp_ptr+i<<", plane "<<write_plane<<endl;
         }
     }
 
@@ -170,7 +174,7 @@ private:
         SDL_RenderClear(rend);
         SDL_RenderCopy(rend, text, NULL,  NULL);
         SDL_RenderPresent(rend);
-        cout<<"surf->pitch: "<<surf->pitch<<endl;
+        //cout<<"surf->pitch: "<<surf->pitch<<endl;
     }
 
     void bits_to_surf() {
@@ -185,6 +189,7 @@ private:
                             8 * (bitplanes[memaddr][3] & val);    //value
                 index /= val;
                 pset(x,y,index);
+                //cout<<dec<<"output to ("<<x<<", "<<y<<") from memaddr "<<hex<<memaddr<<dec<<endl;
                 bit++;
                 if(bit == 8) {
                     bit = 0;
@@ -195,41 +200,121 @@ private:
     }
 };
 
-void display_file(ega& screen, char * filename, int delay) {
-    ifstream in(filename);
-    vector<uint8_t> data(0x2000);
-    screen.set_planes(0,0);
+int getsize(ifstream& in) {
+    int bookmark = in.tellg();
+    in.seekg(0,ios::end);
+    int retval = in.tellg();
+    in.seekg(bookmark);
+    return retval;
+}
+
+void display_file(ega& screen, ifstream& in, int mode, int delay) {
+    if(getsize(in) != (320 * 200) / 2) {
+        cerr<<"Data probably doesn't represent a full screen; expect garbling"<<endl;
+    }
+    if(mode == 0) { //graphic-planar data
+        vector<uint8_t> data((320*200)/8);
+        screen.set_ptr(0);
+        for(int plane = 0; plane < 4; plane++) {
+            screen.set_planes(plane,plane);
+            //Read a screen-plane of data
+            in.read(reinterpret_cast<char *>(&data[0]), (320*200)/8);
+            screen.plane_blit(data);
+        }
+    }
+    else if(mode == 1) { //row-planar data
+        vector<uint8_t> data(320/8);
+        for(int line = 0; line < 200; line++) {
+            //Set screen pointer to current line
+            screen.set_ptr(line * (320 / 8));
+            for(int plane = 0; plane < 4; plane++) {
+                screen.set_planes(plane, plane);
+                //Read a line-plane of data
+                in.read(reinterpret_cast<char *>(&data[0]), 320/8);
+                screen.plane_blit(data);
+            }
+        }
+    }
+    else if(mode == 2) { //byte-planar data
+        vector<uint8_t> raw_data(320/2);
+        for(int line = 0; line < 200; line++) {
+            //read a line of data (all 4 planes interleaved)
+            in.read(reinterpret_cast<char *>(&raw_data[0]), 320/2);
+            vector<uint8_t> plane_data(320/8);
+            //De-interleave the plane data, and blit 1 line-plane at a time
+            for(int plane = 0; plane < 4; plane++) {
+                    screen.set_planes(plane, plane);
+                    screen.set_ptr(line * (320 / 8));
+                    for(int byte = 0; byte < 320 / 8; byte++) {
+                        plane_data[byte] = raw_data[byte * 4 + plane];
+                    }
+                    screen.plane_blit(plane_data);
+                }
+            }
+    }
+    else if(mode == 3) { //linear ega data
+        cerr<<"Mode 3 is linear ega data. Rare. Todo."<<endl;
+        return;
+    }
+    else {
+        cerr<<"Modes are currently just 0->3"<<endl;
+        return;
+    }
+
     screen.set_ptr(0);
-    in.read(reinterpret_cast<char *>(&data[0]), (320*200)/8);
-    screen.plane_blit(data);
-    
-    screen.set_planes(1,1);
-    in.read(reinterpret_cast<char *>(&data[0]), (320*200)/8);
-    screen.plane_blit(data);
-
-    screen.set_planes(2,2);
-    in.read(reinterpret_cast<char *>(&data[0]), (320*200)/8);
-    screen.plane_blit(data);
-
-    screen.set_planes(3,3);
-    in.read(reinterpret_cast<char *>(&data[0]), (320*200)/8);
-    screen.plane_blit(data);
-    in.close();
-
     screen.refresh();
     SDL_Delay(delay);
 }
 
+int open_next_valid(int argc, char **argv, int start, ifstream& in) {
+    if(in.is_open()) {
+        in.close();
+    }
+    for(int i = start; i < argc; i++) {
+        in.open(argv[i]);
+        if(in.is_open()) {
+            return i;
+        }
+        else {
+            cerr<<"Couldn't open file "<<argv[i]<<", moving on to the next one."<<endl;
+        }
+    }
+    return -1;
+}
+
 int main(int argc, char *argv[]) {
-    if(argc == 1) {
-        cerr<<"Provide some filenames to interpret as EGA screen dumps"<<endl;
+    if(argc < 3) {
+        cerr<<"Provide a mode and some filenames to interpret as EGA screen dumps"<<endl;
+        return 1;
+    }
+
+    int mode;
+
+    try {
+        mode = stoi(argv[1]);
+    }
+    catch(const invalid_argument& ia) {
+        cerr<<argv[1]<<" is an invalid mode argument."<<endl;
+        return 1;
+    }
+    catch(const out_of_range& oor) {
+        cerr<<argv[1]<<" is out of range."<<endl;
+        return 1;
+    }
+
+    ifstream in;
+    int first_valid = open_next_valid(argc, argv, 2, in);
+
+    if(first_valid < 0) {
+        cerr<<"Couldn't open any provided filenames. Exiting."<<endl;
         return 1;
     }
 
     ega screen;
 
-    for(int i = 1; i < argc; i++) {
-        display_file(screen, argv[i], 5000);
+    for(int i = first_valid; i > 0 && i < argc; i++) {
+        display_file(screen, in, mode, 5000);
+        i = open_next_valid(argc, argv, i + 1, in) - 1;
     }
 
     return 0;
