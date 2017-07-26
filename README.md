@@ -17,3 +17,6 @@ Implements *two* of the RLE formats used in the Solar Winds games, as well as ra
 
 ## mandel
 Mandelbrot generator. Displays the set at 1024x1024 resolution for 10 seconds, then exits.
+
+## life
+Conway's game of life. Give it a width, height, and desired framerate. Display is capped at 60fps, I think, but the generation simulation should only be limited by your CPU. Spacebar shows a readout of how many cells change between generations. 'r' restarts the simulation (seeds with a new random number, regenerates the map, starts the simulation). Any other key should exit.
