@@ -20,3 +20,9 @@ Mandelbrot generator. Displays the set at 1024x1024 resolution for 10 seconds, t
 
 ## life
 Conway's game of life. Give it a width, height, and desired framerate. Display is capped at 60fps, I think, but the generation simulation should only be limited by your CPU. Spacebar shows a readout of how many cells change between generations. 'r' restarts the simulation (seeds with a new random number, regenerates the map, starts the simulation). Any other key should exit.
+
+## bfi
+BrainF\*\*\* programming language interpreter, along with some test/example code. 
+- test1.bf: take input of two characters, output their sum.
+- test2.bf: add 2 and 5, then convert the output value to ASCII
+- test3.bf and test4.bf: alternate implementations of "hello world" programs
