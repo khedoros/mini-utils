@@ -26,3 +26,6 @@ BrainF\*\*\* programming language interpreter, along with some test/example code
 - test1.bf: take input of two characters, output their sum.
 - test2.bf: add 2 and 5, then convert the output value to ASCII
 - test3.bf and test4.bf: alternate implementations of "hello world" programs
+
+## joy2key
+Current a WIP. It's a C++ port of the RetroPie joy2key Python script that reads joystick events and outputs keypresses to the current terminal. I'm porting it because the Python version takes 5% of the processing power of my Pi1, and I suspect that I can do better by reimplementing it.
