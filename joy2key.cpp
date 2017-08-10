@@ -97,27 +97,10 @@ void get_button_codes(const string& dev_path) {
     string dev_name = "";
 
     //getting joystick name
-    //
-    //
-}
-
-int main() {
-    signal(SIGINT, signal_handler);
-    setupterm(NULL, STDOUT_FILENO, NULL);
-
-    struct udev *udev;
-    struct udev_enumerate *enumerate;
-    udev = udev_new();
-    if(!udev) {
-        cerr<<"Couldn't create udev context."<<endl;
-        return 1;
-    }
-    enumerate = udev_enumerate_new(udev);
-
-    while(1) {
-        cout<<"Stuff!"<<endl;
-        sleep(1);
-    }
+    //This is an XBMC implementation of enumerating joysticks for XBMC, and I'll bet that it has a lot in common with how I want to do it.
+    //https://github.com/romanlum/xbmc/commit/e077dd62d7fc8f0eca8f82aa1ff3ec955ec20d41
+    //This is another udev tutorial that I'd been looking at, and that I think still has useful information:
+    //http://www.signal11.us/oss/udev/
 }
 
 /*
@@ -328,3 +311,22 @@ while True:
 
     time.sleep(0.01)
     */
+int main() {
+    signal(SIGINT, signal_handler);
+    setupterm(NULL, STDOUT_FILENO, NULL);
+
+    struct udev *udev;
+    struct udev_enumerate *enumerate;
+    udev = udev_new();
+    if(!udev) {
+        cerr<<"Couldn't create udev context."<<endl;
+        return 1;
+    }
+    enumerate = udev_enumerate_new(udev);
+
+    while(1) {
+        cout<<"Stuff!"<<endl;
+        sleep(1);
+    }
+}
+
