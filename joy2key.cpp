@@ -18,6 +18,7 @@
 #include<curses.h>
 #include<term.h>
 #include<libudev.h>
+#include<dirent.h>
 
 struct js_event {
     uint32_t time;     /* event timestamp in milliseconds */
@@ -159,23 +160,44 @@ def get_button_codes(dev_path):
         btn_codes[btn_num['b']] = '\n'
 
     return btn_codes
+*/
 
-def get_hex_chars(key_str):
-    if (key_str.startswith("0x")):
-        return key_str[2:].decode('hex')
-    else:
-        return curses.tigetstr(key_str)
+string get_hex_chars(const string& key_str) {
+    string retval("");
+    if(key_str.substr(0,2) == "0x") {
+        for(int i=2;i<key_str.size();i+=2) {
+            retval+=(char)(stoi(key_str.substr(i,2),0,16));
+        }
+    }
+    else {
+        char * temp = tigetstr(key_str.c_str());
+        if(temp > 0) {
+            retval = string(temp);
+        }
+    }
+    return retval;
+}
 
-def get_devices():
-    devs = []
-    if sys.argv[1] == '/dev/input/jsX':
-        for dev in os.listdir('/dev/input'):
-            if dev.startswith('js'):
-                devs.append('/dev/input/' + dev)
-    else:
-        devs.append(sys.argv[1])
+vector<string> get_devices(int argc, char ** argv) {
+    vector<string> devs(0);
+    if(argc > 1 && string(argv[1]) == "/dev/input/jsX") {
+        DIR *dir;
+        struct dirent *ent;
+        dir = opendir("/dev/input");
+        while((ent = readdir(dir)) != NULL) {
+            if(string(ent->d_name).substr(2) == "js") {
+                devs.push_back(string("/dev/input/") + ent->d_name);
+            }
+        }
+        closedir(dir);
+    }
+    else if(argc > 1) {
+        devs.push_back(string(argv[1]));
+    }
+    return devs;
+}
 
-    return devs
+/*
 
 def open_devices():
     devs = get_devices()

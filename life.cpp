@@ -132,9 +132,11 @@ int main(int argc, char *argv[]) {
                     cout<<endl<<endl<<"Restarting a new simulation..."<<endl;
                     goto restartit;
                 }
+                else if(event.type == SDL_KEYDOWN && (event.key.keysym.sym == 1073742048 || event.key.keysym.sym == 1073742050 || event.key.keysym.sym == 1073742052 || event.key.keysym.sym == 1073742054)) {
+                }
                 else {
                     quitting_time = true;
-                    cout<<"Exiting due to key press"<<endl;
+                    cout<<"Exiting due to key press (keysym "<<int(event.key.keysym.sym)<<")"<<endl;
                 }
             }
         }
@@ -248,9 +250,11 @@ int main(int argc, char *argv[]) {
                     cout<<endl<<endl<<"Restarting a new simulation..."<<endl;
                     goto restartit;
                 }
+                else if(event.type == SDL_KEYDOWN && (event.key.keysym.sym == 1073742048 || event.key.keysym.sym == 1073742050 || event.key.keysym.sym == 1073742052 || event.key.keysym.sym == 1073742054)) {
+                }
                 else {
                     quitting_time = true;
-                    cout<<"Exiting due to key press"<<endl;
+                    cout<<"Exiting due to key press (keysym "<<int(event.key.keysym.sym)<<")"<<endl;
                 }
             }
         }
