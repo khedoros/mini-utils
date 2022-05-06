@@ -132,45 +132,48 @@ void decode_img(vector<uint8_t>& orig, vector<uint8_t>& deco, int mode) {
 }
 
 int main(int argc, char *argv[]) {
-    if(argc != 3) {
+	int pal_arg_idx = 1;
+	int img_arg_idx = 2;
+	if(argc == 2) {
+		img_arg_idx = 1;
+		pal_arg_idx = -1;
+	}
+	else if(argc != 3) {
         cerr<<"Provide a palette and a data file."<<endl;
         return 1;
     }
-        
-    ifstream pal_file(argv[1]);
-    ifstream img_file(argv[2]);
-
-    if(!img_file.is_open() || !pal_file.is_open()) {
-        cerr<<"Couldn't open one of the files. Check paths."<<endl;
-        return 1;
-    }
-
-    size_t img_size = 0;
-    size_t pal_size = 0;
-    img_file.seekg(0,ios::end);
-    img_size = img_file.tellg();
-    img_file.seekg(0);
-
-    vector<uint8_t> img(img_size);
-    vector<uint8_t> decoded_img;
-    img_file.read(reinterpret_cast<char *>(&img[0]), img_size);
-    decode_img(img, decoded_img, 0);
-    img_file.close();
-
-    pal_file.seekg(0,ios::end);
-    pal_size = pal_file.tellg();
-    pal_file.seekg(0);
-
-    if(pal_size % 3 != 0 || img_size < 100) {
-        cerr<<"The filesizes aren't what I'm expecting."<<endl;
-        cerr<<"Palsize: "<<pal_size<<"\tImg Size: "<<img_size<<endl;
-        return 1;
-    }
-
+    
     assert(sizeof(color) == 3);
     vector<color> pal(256);
-    pal_file.read(reinterpret_cast<char *>(&pal[0]), pal_size);
-    pal_file.close();
+	size_t pal_size = 768;
+
+	if(pal_arg_idx != -1) {
+	    ifstream pal_file(argv[pal_arg_idx]);
+		if(!pal_file.is_open()) {
+			cerr<<"Couldn't open the palette file. Check paths."<<endl;
+			return 1;
+		}
+
+		pal_file.seekg(0,ios::end);
+		pal_size = pal_file.tellg();
+		pal_file.seekg(0);
+
+		if(pal_size != 256 * 3) {
+			cerr<<"The palette needs to be a 768-byte file."<<endl;
+			cerr<<"Palsize: "<<pal_size<<endl;
+			return 1;
+		}
+
+		pal_file.read(reinterpret_cast<char *>(&pal[0]), pal_size);
+		pal_file.close();
+	}
+	else {
+		for(int i=0;i<pal.size();i++) {
+			pal[i].r = i;
+			pal[i].g = i;
+			pal[i].b = i;
+		}
+	}
 
     SDL_Palette *spal = SDL_AllocPalette(256);
     if(!spal) {
@@ -186,6 +189,26 @@ int main(int argc, char *argv[]) {
         spal->colors[i].b = pal[index].b;
         spal->colors[i].a = 255;
     }
+
+
+    ifstream img_file(argv[img_arg_idx]);
+
+    if(!img_file.is_open()) {
+        cerr<<"Couldn't open the image file. Check paths."<<endl;
+        return 1;
+    }
+
+    size_t img_size = 0;
+    img_file.seekg(0,ios::end);
+    img_size = img_file.tellg();
+    img_file.seekg(0);
+
+    vector<uint8_t> img(img_size);
+    vector<uint8_t> decoded_img;
+    img_file.read(reinterpret_cast<char *>(&img[0]), img_size);
+    decode_img(img, decoded_img, 0);
+    img_file.close();
+
 
     int sdl_status = SDL_Init(SDL_INIT_VIDEO);
     if(sdl_status != 0) {
@@ -245,7 +268,7 @@ int main(int argc, char *argv[]) {
                             }
                             break;
                         case SDL_SCANCODE_D:
-                            if(winw < 1024) {
+                            if(winw < 2048) {
                                 winw++;
                                 changed = true;
                             }
@@ -257,7 +280,7 @@ int main(int argc, char *argv[]) {
                             }
                             break;
                         case SDL_SCANCODE_S:
-                            if(winh < 768) {
+                            if(winh < 2048) {
                                 winh++;
                                 changed = true;
                             }
@@ -268,7 +291,7 @@ int main(int argc, char *argv[]) {
                             changed = true;
                             break;
                         case SDL_SCANCODE_O: {
-                            ofstream out((string(argv[2])+".exp").c_str());
+                            ofstream out((string(argv[img_arg_idx])+".exp").c_str());
                             if(out.is_open()) {
                                 out.write(reinterpret_cast<char *>(&decoded_img[0]), decoded_img.size());
                                 if(out.tellp() != decoded_img.size()) {
@@ -276,31 +299,35 @@ int main(int argc, char *argv[]) {
                                 }
                                 out.flush();
                                 out.close();
-                                cout<<"Dumped "<<decoded_img.size()<<" bytes of data to output file "<<argv[2]<<".exp"<<endl;
+                                cout<<"Dumped "<<decoded_img.size()<<" bytes of data to output file "<<argv[img_arg_idx]<<".exp"<<endl;
                             }
                             }
                             break;
                         case SDL_SCANCODE_J:
                             if(skipx > 0) {
                                 skipx--;
+								cout<<"Top-left is offset "<<std::hex<<"0x"<<skipx+skipy*winw<<"\n";
                                 changed = true;
                             }
                             break;
                         case SDL_SCANCODE_L:
                             if(skipx + skipy * winw < decoded_img.size()) {
                                 skipx++;
+								cout<<"Top-left is offset "<<std::hex<<"0x"<<skipx+skipy*winw<<"\n";
                                 changed = true;
                             }
                             break;
                         case SDL_SCANCODE_I:
                             if(skipy > 0) {
                                 skipy--;
+								cout<<"Top-left is offset "<<std::hex<<"0x"<<skipx+skipy*winw<<"\n";
                                 changed = true;
                             }
                             break;
                         case SDL_SCANCODE_K:
                             if(skipx + skipy * winw < decoded_img.size()) {
                                 skipy++;
+								cout<<"Top-left is offset "<<std::hex<<"0x"<<skipx+skipy*winw<<"\n";
                                 changed = true;
                             }
                             break;

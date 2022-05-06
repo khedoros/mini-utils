@@ -4,7 +4,10 @@
 #include<ctgmath>
 #include<cstring>
 
-using namespace std;
+using std::cout,std::cerr,std::endl;
+
+const int SCR_SIZE = 50;
+const int BYTES_PER_PX = 4;
 
 template <class T>
 class complex {
@@ -73,7 +76,7 @@ void pset(SDL_Surface * surf, int x, int y, uint32_t col) {
     if(y<0) { cout<<"Y is "<<y<<endl;}
     uint32_t * pixels = (uint32_t *)(surf->pixels);
     int pitch = surf->pitch;
-    pixels[y*(pitch/4)+x] = col;
+    pixels[y*(pitch/BYTES_PER_PX)+x] = col;
     return;
 }
 
@@ -82,16 +85,16 @@ uint32_t col(uint32_t r, uint32_t g, uint32_t b) {
 }
 
 void clear(SDL_Surface * surf, uint32_t col) {
-    for(int i=0;i<1024; i++) {
-        for(int j=0;j<1024;j++) {
-            ((uint32_t *)(surf->pixels))[i*(surf->pitch/4)+j] = col;
+    for(int i=0;i<SCR_SIZE; i++) {
+        for(int j=0;j<SCR_SIZE;j++) {
+            ((uint32_t *)(surf->pixels))[i*(surf->pitch/BYTES_PER_PX)+j] = col;
         }
     }
 }
 
 void startup(SDL_Surface ** s, SDL_Renderer ** r, SDL_Window ** w) {
     SDL_Init(SDL_INIT_VIDEO);
-    *w = SDL_CreateWindow("EGA Screen", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 1024, 0);
+    *w = SDL_CreateWindow("Mandelbrot Render", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCR_SIZE, SCR_SIZE, 0);
     if(!*w) {
         cerr<<"Window creation failed."<<endl;
         cerr<<SDL_GetError()<<endl;
@@ -113,7 +116,7 @@ void startup(SDL_Surface ** s, SDL_Renderer ** r, SDL_Window ** w) {
     gmask = 0x0000ff00;
     bmask = 0x00ff0000;
     amask = 0xff000000;
-    *s = SDL_CreateRGBSurface(0, 1024, 1024, 32, rmask, gmask, bmask, amask);
+    *s = SDL_CreateRGBSurface(0, SCR_SIZE, SCR_SIZE, 32, rmask, gmask, bmask, amask);
     if(!*s) {
         cerr<<"Surface creation failed."<<endl;
         cerr<<SDL_GetError()<<endl;
@@ -129,7 +132,9 @@ int dist(double i, double j) {
         accum = accum * accum + pt;
         iter++;
     }
+	if(iter == 256) return 255;
     return iter;
+
 }
 
 int main() {
@@ -140,20 +145,21 @@ int main() {
     startup(&surf, &rend, &wind);
     clear(surf, col(0,0,0));
 
+	// Set palette entries
     uint32_t pal[256];
     for(int i=0;i<256;i++) pal[i] = col(i,i,i);
 
-    for(double j = -2.0; j < 0.0; j += (4.0/1024.0)) {
-        for(double i = -2.0; i < 2.0; i += (4.0/1024.0)) {
+    for(double j = -2.0; j < 0.0; j += (4.0/static_cast<double>(SCR_SIZE))) {
+        for(double i = -2.0; i < 2.0; i += (4.0/static_cast<double>(SCR_SIZE))) {
             int distance = dist(i,j) % 256;
-            pset(surf, (i+2.0)*256, (j+2.0)*256, pal[distance]);
+            pset(surf, (i+2.0)*(SCR_SIZE/4), (j+2.0)*(SCR_SIZE/4), pal[distance]);
         }
     }
     int pitch=surf->pitch;
-    for(int j=512;j<1024;j++) {
+    for(int j=SCR_SIZE/2;j<SCR_SIZE;j++) {
         uint32_t * dat = (uint32_t *)(surf->pixels);
-        uint32_t * src =  &dat[0+(1024 - j)*pitch/4];
-        uint32_t * dst =  &dat[0+j*pitch/4];
+        uint32_t * src =  &dat[0+(SCR_SIZE - j)*pitch/BYTES_PER_PX];
+        uint32_t * dst =  &dat[0+j*pitch/BYTES_PER_PX];
         memcpy(dst, src, pitch);
     }
 
